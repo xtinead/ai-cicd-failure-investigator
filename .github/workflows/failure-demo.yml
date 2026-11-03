@@ -1,0 +1,46 @@
+
+name: Controlled Failure Demonstration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulate-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install investigator
+        run: python -m pip install -e .
+
+      - name: Generate investigation report
+        run: |
+          pipeline-investigator \
+            --log samples/iam_access_denied.log \
+            --output reports
+
+      - name: Simulate failed deployment
+        run: |
+          echo "Simulating an IAM authorization failure"
+          echo "AccessDenied: not authorized to perform iam:PassRole"
+          exit 1
+
+      - name: Upload investigation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlled-failure-investigation
+          path: reports/
+          retention-days: 7
+          if-no-files-found: warn

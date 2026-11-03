@@ -1,0 +1,25 @@
+# Python virtual environment
+.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Generated investigation reports
+reports/*
+!reports/.gitkeep
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Terraform state
+*.tfstate
+*.tfstate.*

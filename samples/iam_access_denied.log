@@ -1,0 +1,10 @@
+
+2026-11-03T10:15:00Z Starting Terraform deployment
+2026-11-03T10:15:01Z terraform init completed
+2026-11-03T10:15:03Z terraform plan completed
+2026-11-03T10:15:05Z terraform apply started
+
+Error: AccessDenied
+User is not authorized to perform iam:PassRole
+
+2026-11-03T10:15:07Z Process completed with exit code 1
