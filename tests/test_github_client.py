@@ -7,6 +7,11 @@ from pipeline_investigator.github_client import (
 )
 
 
+from pipeline_investigator.github_client import (
+    validate_download_url,
+)
+
+
 def test_client_configuration():
     client = GitHubActionsClient(
         owner="xtinead",
@@ -114,3 +119,54 @@ def test_pagination(monkeypatch):
 
     assert len(jobs) == 101
     assert pages_requested == [1, 2]
+
+def test_rejects_unapproved_log_host():
+    with pytest.raises(GitHubAPIError):
+        validate_download_url(
+            "https://example.com/secret-log"
+        )
+
+
+def test_rejects_insecure_log_url():
+    with pytest.raises(GitHubAPIError):
+        validate_download_url(
+            "http://productionresultssa0.blob.core.windows.net/log"
+        )
+
+def test_accepts_valid_log_url():
+    # This should not raise an exception
+    validate_download_url(
+        "https://productionresultssa0.blob.core.windows.net/log"
+    )
+
+
+def test_accepts_observed_github_storage_host():
+    url = (
+        "https://productionresultssa10.blob.core.windows.net/"
+        "example-log"
+    )
+
+    assert validate_download_url(url) == url
+
+def test_accepts_github_actions_hosts():
+    for host in [
+        "results-receiver.actions.githubusercontent.com",
+        "pipelines.actions.githubusercontent.com",
+    ]:
+        url = f"https://{host}/example-log"
+        assert validate_download_url(url) == url
+
+def test_rejects_url_with_credentials_or_port():
+    with pytest.raises(GitHubAPIError):
+        validate_download_url(
+            "https://user:pass@results-receiver.actions.githubusercontent.com:443/log"
+        )
+    with pytest.raises(GitHubAPIError):
+        validate_download_url(
+            "https://results-receiver.actions.githubusercontent.com:443/log"
+        )
+def test_rejects_non_https_url():
+    with pytest.raises(GitHubAPIError):
+        validate_download_url(
+            "ftp://results-receiver.actions.githubusercontent.com/log"
+        )
