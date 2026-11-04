@@ -1,0 +1,76 @@
+
+name: Test GitHub Log Access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test-log-access:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Test authenticated log access
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.error import HTTPError
+          from urllib.parse import urlsplit
+          from urllib.request import Request, build_opener, HTTPRedirectHandler
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(
+                  self, request, fp, code, msg, headers, newurl
+              ):
+                  return None
+
+          job_id = 126373457103
+
+          url = (
+              "https://api.github.com/repos/"
+              "xtinead/ai-cicd-failure-investigator/"
+              f"actions/jobs/{job_id}/logs"
+          )
+
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2026-03-10",
+              "User-Agent": "pipeline-failure-investigator",
+              "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+          }
+
+          try:
+              opener = build_opener(NoRedirect())
+
+              with opener.open(
+                  Request(url, headers=headers),
+                  timeout=15,
+              ) as response:
+                  print("HTTP status:", response.status)
+
+          except HTTPError as exc:
+              print("HTTP status:", exc.code)
+
+              if exc.code == 302:
+                  location = exc.headers.get("Location")
+                  parsed = urlsplit(location)
+
+                  print("Redirect scheme:", parsed.scheme)
+                  print("Redirect host:", parsed.hostname)
+                  print("Redirect URL received: yes")
+              else:
+                  raise
+          PY
