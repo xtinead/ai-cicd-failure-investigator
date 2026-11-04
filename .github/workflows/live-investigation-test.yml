@@ -1,0 +1,93 @@
+
+name: Live Failure Investigation Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  investigate:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install investigator
+        run: python -m pip install -e .
+
+      - name: Investigate real failed job
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import os
+
+          from pipeline_investigator.github_client import (
+              GitHubActionsClient,
+          )
+          from pipeline_investigator.analyzer import analyze
+
+          RUN_ID = 41768819467
+
+          client = GitHubActionsClient(
+              owner="xtinead",
+              repo="ai-cicd-failure-investigator",
+              token=os.environ["GITHUB_TOKEN"],
+          )
+
+          run = client.get_workflow_run(RUN_ID)
+
+          if run.get("conclusion") != "failure":
+              raise RuntimeError(
+                  "Expected a failed workflow run"
+              )
+
+          failed_jobs = client.get_failed_jobs(RUN_ID)
+
+          if not failed_jobs:
+              raise RuntimeError("No failed jobs found")
+
+          print("Workflow:", run["name"])
+          print("Failed jobs detected:", len(failed_jobs))
+
+          for job in failed_jobs:
+              job_id = job["id"]
+
+              print("Investigating job:", job["name"])
+
+              logs = client.download_job_logs(job_id)
+
+              print("Log retrieval: successful")
+              print("Log size (characters):", len(logs))
+
+              result = analyze(logs)
+
+              print("Analysis status:", result["status"])
+              print(
+                  "Analysis type:",
+                  result["analysis_type"],
+              )
+              print(
+                  "Root cause confirmed:",
+                  result["root_cause_confirmed"],
+              )
+              print(
+                  "Findings:",
+                  len(result["findings"]),
+              )
+
+              for finding in result["findings"]:
+                  print(
+                      "Detected category:",
+                      finding["category"],
+                  )
+          PY
